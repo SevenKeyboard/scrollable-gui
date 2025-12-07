@@ -204,7 +204,7 @@ class ScrollableGui
     ;--------------------------------------------------
     registerWndProc(Msg:=-1, maxThreads:=-1)    {
         static WM_DESTROY:=0x0002,WM_HSCROLL:=0x0114, WM_VSCROLL:=0x0115, WM_LBUTTONDOWN:=0x0201, WM_MOUSEWHEEL:=0x020A, WM_MOUSEHWHEEL:=0x020E, WM_SIZING:=0x0214, WM_EXITSIZEMOVE:=0x0232
-        if (!this.hasKey("_obmWndProc"))
+        if (!this.hasKey("_objbmWndProc"))
             this._objbmWndProc:=objBindMethod(this,"wndProc")
         objbm:=this._objbmWndProc
         if (Msg!==-1)    {
@@ -628,7 +628,7 @@ class ScrollableGui
         ,varSetCapacity(psbi,60,0)
         ,numPut(60,psbi,0,"UInt")
         if (bRet:=dllCall("User32.dll\GetScrollBarInfo", "Ptr",hWnd, "Int",idObject, "Ptr",&psbi))    {
-             objsbi.cbSite:=numGet(psbi,0,"UInt")
+             objsbi.cbSize:=numGet(psbi,0,"UInt")
             ,objsbi.rcScrollBar.left:=numGet(psbi,4,"Int")
             ,objsbi.rcScrollBar.top:=numGet(psbi,8,"Int")
             ,objsbi.rcScrollBar.right:=numGet(psbi,12,"Int")
