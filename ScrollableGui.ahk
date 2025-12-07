@@ -154,8 +154,8 @@ class ScrollableGui
                 showOptions.=(showOptions==""?"":" ") "h" newHeight
             prevDHW:=detectHiddenWindows(true)
             ,prevWD:=setWinDelay(-1)
-            ,guiObj.getPos(&guiX, &guiY, &guiW, &guiH), winGetPos(&winX, &winY, &winW, &guiH, hWnd)
-            switch (guiDpiScaled:=(guiW !== winW || guiH !== guiH))
+            ,guiObj.getPos(&guiX, &guiY, &guiW, &guiH), winGetPos(&winX, &winY, &winW, &winH, hWnd)
+            switch (guiDpiScaled:=(guiW !== winW || guiH !== winH))
             {
                 default:
                     guiObj.opt("+MaxSize" (newWidth??"") "x" (newHeight??""))
@@ -196,7 +196,7 @@ class ScrollableGui
     ;--------------------------------------------------
     static registerWndProc(Msg:=-1, maxThreads:=-1)    {
         static WM_DESTROY:=0x0002,WM_HSCROLL:=0x0114, WM_VSCROLL:=0x0115, WM_LBUTTONDOWN:=0x0201, WM_MOUSEWHEEL:=0x020A, WM_MOUSEHWHEEL:=0x020E, WM_SIZING:=0x0214, WM_EXITSIZEMOVE:=0x0232
-        if (!this.hasProp("_obmWndProc"))
+        if (!this.hasProp("_objbmWndProc"))
             this._objbmWndProc:=objBindMethod(this,"wndProc")
         objbm:=this._objbmWndProc
         if (Msg!==-1)    {
@@ -218,7 +218,7 @@ class ScrollableGui
         if (this.isRegistered(this._hRootWnd:=dllCall("User32.dll\GetAncestor", "Ptr",hWnd, "UInt",GA_ROOT, "Ptr")&0xffffffff))    {
             switch (Msg)
             {
-                case WM_DESTROY:
+                ;  case WM_DESTROY:
                 case WM_HSCROLL,WM_VSCROLL:         ret:=this._onScroll(wParam, lParam, Msg, hWnd)
                 case WM_LBUTTONDOWN:
                     if (this._hRootWnd==hWnd)
@@ -618,7 +618,7 @@ class ScrollableGui
         ,psbi:=buffer(60,0)
         ,numPut("UInt",60,psbi,0)
         if (bRet:=dllCall("User32.dll\GetScrollBarInfo", "Ptr",hWnd, "Int",idObject, "Ptr",psbi.Ptr))    {
-             objsbi.cbSite:=numGet(psbi,0,"UInt")
+             objsbi.cbSize:=numGet(psbi,0,"UInt")
             ,objsbi.rcScrollBar.left:=numGet(psbi,4,"Int")
             ,objsbi.rcScrollBar.top:=numGet(psbi,8,"Int")
             ,objsbi.rcScrollBar.right:=numGet(psbi,12,"Int")
