@@ -227,7 +227,7 @@ class ScrollableGui
         if (this.isRegistered(this._hRootWnd:=dllCall("User32.dll\GetAncestor", "Ptr",hWnd, "UInt",GA_ROOT, "Ptr")&0xffffffff))    {
             switch (Msg)
             {
-                case WM_DESTROY:
+                ;  case WM_DESTROY:
                 case WM_HSCROLL,WM_VSCROLL:         ret:=this._onScroll(wParam, lParam, Msg, hWnd)
                 case WM_LBUTTONDOWN:
                     if (this._hRootWnd==hWnd)
