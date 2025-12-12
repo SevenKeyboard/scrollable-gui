@@ -6,14 +6,16 @@
 ; Author: SevenKeyboard Ltd. (2024)
 ; License: MIT License
 ;==============================================================
-class ScrollableGui
+class VersionManager_ScrollableGui
 {
-    static _ := this._versionManager()
-    static _versionManager()    {
+    static _ := this._init()
+    static _init()    {
         global
         SCROLLABLEGUI_VERSION := "1.0.2"
     }
-    ;--------------------------------------------------
+}
+class ScrollableGui
+{
     static init()    {
         this.registerWndProc(-1,-1)
     }
