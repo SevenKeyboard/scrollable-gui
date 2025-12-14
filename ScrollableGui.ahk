@@ -1,4 +1,4 @@
-#Requires AutoHotkey v1.1.0+
+#Requires AutoHotkey v1.1.35+
 ;==============================================================
 ; ScrollableGui — Enables a window to scroll its contents with scrollbars, mouse wheel, and resize-aware behavior
 ;
