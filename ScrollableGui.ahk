@@ -197,7 +197,7 @@ class ScrollableGui
     */
     ;--------------------------------------------------
     static registerWndProc(Msg:=-1, maxThreads:=-1)    {
-        static WM_DESTROY:=0x0002,WM_HSCROLL:=0x0114, WM_VSCROLL:=0x0115, WM_LBUTTONDOWN:=0x0201, WM_MOUSEWHEEL:=0x020A, WM_MOUSEHWHEEL:=0x020E, WM_SIZING:=0x0214, WM_EXITSIZEMOVE:=0x0232
+        static WM_DESTROY:=0x0002, WM_HSCROLL:=0x0114, WM_VSCROLL:=0x0115, WM_LBUTTONDOWN:=0x0201, WM_MOUSEWHEEL:=0x020A, WM_MOUSEHWHEEL:=0x020E, WM_SIZING:=0x0214, WM_EXITSIZEMOVE:=0x0232
         if (!this.hasProp("_objbmWndProc"))
             this._objbmWndProc:=objBindMethod(this,"wndProc")
         objbm:=this._objbmWndProc
@@ -210,7 +210,7 @@ class ScrollableGui
     }
     static wndProc(wParam, lParam, Msg, hWnd)    { ;  UPtr  Ptr  UInt  Ptr
         static GA_ROOT:=2
-            ,WM_DESTROY:=0x0002,WM_HSCROLL:=0x0114, WM_VSCROLL:=0x0115, WM_LBUTTONDOWN:=0x0201, WM_MOUSEWHEEL:=0x020A, WM_MOUSEHWHEEL:=0x020E, WM_SIZING:=0x0214, WM_EXITSIZEMOVE:=0x0232
+            ,WM_DESTROY:=0x0002, WM_HSCROLL:=0x0114, WM_VSCROLL:=0x0115, WM_LBUTTONDOWN:=0x0201, WM_MOUSEWHEEL:=0x020A, WM_MOUSEHWHEEL:=0x020E, WM_SIZING:=0x0214, WM_EXITSIZEMOVE:=0x0232
         if (Msg==WM_DESTROY)    {
             this.unregister(hWnd)
             return
