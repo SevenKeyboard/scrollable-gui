@@ -162,13 +162,13 @@ class ScrollableGui
                 default:
                     guiObj.opt("+MaxSize" (newWidth??"") "x" (newHeight??""))
                     if (showOptions !== "")
-                        gui.show(showOptions)
+                        guiObj.show(showOptions)
                 case true:
                     prevIC:=critical("On")
                     ,guiObj.opt("-DPIScale")
                     ,guiObj.opt("+MaxSize" (newWidth??"") "x" (newHeight??""))
                     if (showOptions !== "")
-                        gui.show(showOptions)
+                        guiObj.show(showOptions)
                     guiObj.opt("+DPIScale")
                     ,critical(prevIC)
             }
