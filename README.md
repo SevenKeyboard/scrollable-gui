@@ -1,13 +1,92 @@
-# scrollable-gui
-This class provides scrollable [GUI](https://www.autohotkey.com/docs/v2/lib/Gui.htm) functionality for AutoHotkey v1 and v2 with dynamic size updates.  
-It supports horizontal and vertical scrolling, and allows for customization of scroll behavior, including focus-based inner scrolling.  
-A detailed user guide will be provided at a later date.  
-For version-specific examples and integration code, refer to the `main-ahkv1` and `main-ahkv2` branches of this repository.
+# ScrollableGui
+This class provides scrollable [GUI](https://www.autohotkey.com/docs/v2/lib/Gui.htm) functionality for AutoHotkey **v1 and v2**, with dynamic **scroll range** updates.  
+It supports horizontal and vertical scrolling, mouse wheel scrolling, and resize-aware behavior.  
+It also provides optional **focus-aware wheel routing** for common controls (Edit/UpDown, ComboBox, etc.).
+
+For version-specific integration code, see the `main-ahkv1` and `main-ahkv2` branches of this repository.  
+For runnable examples, see the `examples/` folder.
 
 ![Example 1 – scrollable window and inner controls](docs/01-scrollable-window-and-inner-controls-demo.png)
 
-> Documentation is currently delayed due to various circumstances.  
-> In the meantime, if you are interested in this AutoHotkey script or project, we recommend the following AutoHotkey Forum topics:
+---
+
+## Features
+- Vertical + horizontal scrollbars
+- Mouse wheel scrolling  
+  - `Shift + Wheel` → horizontal scroll (common Windows UX)
+  - Optional focus-aware wheel routing for common controls
+- Resize-aware updates  
+  - Recalculates scroll ranges/pages during sizing
+  - Scrolls window contents to match the new scroll positions
+- Helpers  
+  - Calculate the bounding rectangle of child controls
+  - Update the stored content boundary and optionally apply GUI MaxSize
+
+---
+
+## Requirements
+- AutoHotkey **v2.0.0+** (for the v2 branch)  
+- AutoHotkey **v1.1.35+** (for the v1 branch)
+
+---
+
+## Installation
+1. Copy `ScrollableGui.ahk` into your project (or add this repository as a submodule).
+2. `#Include` it.
+3. Call `ScrollableGui.init()` once (global message hooks).
+4. Register a GUI window with `ScrollableGui.register()`.
+
+---
+
+## Public API (shared concept; see each branch for exact signatures)
+
+### `ScrollableGui.init()`
+Registers internal message handlers (`WM_VSCROLL`, `WM_HSCROLL`, `WM_MOUSEWHEEL`, `WM_MOUSEHWHEEL`, `WM_SIZING`, etc.).  
+Call once per script.
+
+### `ScrollableGui.register(hWndOrGui, innerScrollOnFocus := true) -> true/false`
+Registers a window as scrollable.
+- `innerScrollOnFocus` (default `true`): when focus is inside a child control, wheel input may be routed to that control when appropriate.
+
+### `ScrollableGui.unregister(hWndOrGui) -> true/false`
+Stops managing the window.  
+If `ScrollableGui.init()` is active (it hooks `WM_DESTROY`), the window is automatically unregistered when it is destroyed—so an explicit call is usually unnecessary.
+
+### `ScrollableGui.isRegistered(hWndOrGui) -> true/false`
+Returns whether the window is registered.
+
+### `ScrollableGui.enableInnerScrollOnFocus(hWndOrGui, onOff := true)`
+Toggles focus-based wheel routing after registration.
+
+### `ScrollableGui.syncSize(hWndOrGui) -> true/false`
+Forces recalculation of scroll ranges/pages using current window size and stored boundary.
+
+### `ScrollableGui.calculateInnerControlsSize(hWndOrGui, &left?, &top?, &right?, &bottom?, visibleControlsOnly := true) -> true/false`
+Computes the bounding rectangle of child controls.
+
+### `ScrollableGui.getBoundary(hWndOrGui, &width?, &height?) -> true/false`
+Returns the stored content boundary size.
+
+### `ScrollableGui.updateBoundary(hWndOrGui, newWidth?, newHeight?, setMaxSize := true) -> true/false`
+Updates stored boundary (content size), then calls `syncSize()`.  
+Optionally applies MaxSize to clamp resizing.
+
+---
+
+## Background / Related Threads
+This project was originally inspired and refined through community discussions around scrollable GUI behavior in AutoHotkey, including:
 
 - [How to show the scrollbar on a Gui Window?](https://www.autohotkey.com/boards/viewtopic.php?f=82&t=131307)
 - [Scroll window not showing all the controls](https://www.autohotkey.com/boards/viewtopic.php?f=82&t=134315)
+
+---
+
+## Credits
+Special thanks to **Lexikos**. Without the original forum post  
+[Scrollable GUI - Proof of Concept](https://www.autohotkey.com/board/topic/26033-scrollable-gui-proof-of-concept/#entry168174),  
+this project would not have been possible to begin in the first place.
+
+---
+
+## License
+MIT License
