@@ -1,7 +1,7 @@
 # ScrollableGui
-This class provides scrollable [GUI](https://www.autohotkey.com/docs/v2/lib/Gui.htm) functionality for AutoHotkey **v1 and v2**, with dynamic **scroll range** updates.  
+This class provides scrollable [Gui](https://www.autohotkey.com/docs/v2/lib/Gui.htm) functionality for AutoHotkey **v1 and v2**, with dynamic **scroll range** updates.  
 It supports horizontal and vertical scrolling, mouse wheel scrolling, and resize-aware behavior.  
-It also provides optional **focus-aware wheel routing** for common controls (Edit/UpDown, ComboBox, etc.).
+It also provides optional **focus-aware wheel routing** for common controls ([Edit](https://www.autohotkey.com/docs/v2/lib/Edit.htm)/[UpDown](https://www.autohotkey.com/docs/v2/lib/GuiControls.htm#UpDown), [ComboBox](https://www.autohotkey.com/docs/v2/lib/GuiControls.htm#ComboBox), etc.).
 
 For version-specific integration code, see the `main-ahkv1` and `main-ahkv2` branches of this repository.  
 For runnable examples, see the `examples/` folder.
