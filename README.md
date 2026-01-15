@@ -74,10 +74,15 @@ Optionally applies MaxSize to clamp resizing.
 ---
 
 ## Background / Related Threads
-This project was originally inspired and refined through community discussions around scrollable GUI behavior in AutoHotkey, including:
 
-- [How to show the scrollbar on a Gui Window?](https://www.autohotkey.com/boards/viewtopic.php?f=82&t=131307)
-- [Scroll window not showing all the controls](https://www.autohotkey.com/boards/viewtopic.php?f=82&t=134315)
+This project was originally inspired by the following forum thread:
+
+- [How to show the scrollbar on a Gui Window?](https://www.autohotkey.com/boards/viewtopic.php?t=131307)
+
+Project threads:
+
+- v2: https://www.autohotkey.com/boards/viewtopic.php?t=139976
+- v1: https://www.autohotkey.com/boards/viewtopic.php?t=139977
 
 ---
 
