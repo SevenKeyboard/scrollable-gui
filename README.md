@@ -75,7 +75,7 @@ Optionally applies MaxSize to clamp resizing.
 
 ## Background / Related Threads
 
-This project was originally inspired by the following forum thread:
+This project started as a response to a forum question/request:
 
 - [How to show the scrollbar on a Gui Window?](https://www.autohotkey.com/boards/viewtopic.php?t=131307)
 
