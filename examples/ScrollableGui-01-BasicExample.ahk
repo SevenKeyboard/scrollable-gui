@@ -2,8 +2,9 @@
 #NoEnv
 #SingleInstance Force
 #Include %A_ScriptDir%
-#Include .\lib\ScrollableGui.ahk
+#Include ..\ScrollableGui.ahk
 ScrollableGui.init()
+
 showGui()
 F2::showGui()
 F3::
@@ -11,8 +12,9 @@ F3::
     if (winExist())
         gui Destroy
     return
+
 showGui()    {
-    global hGuiWnd
+    global hGui
     gui +LastFoundExist
     if (winExist())
         return
@@ -34,9 +36,9 @@ showGui()    {
     gui Add, DropDownList, w480, Black||White|Red
     gui Add, Edit, w480
     gui Add, UpDown, Range1-10, 5
-    gui +HwndhGuiWnd +MaxSize +Resize
+    gui +HwndhGui +MaxSize +Resize
     gui Show, AutoSize, ScrollableGui Example 1
-    ScrollableGui.register(hGuiWnd)
+    ScrollableGui.register(hGui)
     critical % prevIC
 }
 guiClose(thisGui)    {
