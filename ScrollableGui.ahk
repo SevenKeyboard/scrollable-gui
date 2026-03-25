@@ -11,7 +11,7 @@ class VersionManager_ScrollableGui
     static _ := this._init()
     static _init()    {
         global
-        SCROLLABLEGUI_VERSION := "1.0.2"
+        SCROLLABLEGUI_VERSION := "1.1.0-alpha"
     }
 }
 class ScrollableGui
@@ -109,22 +109,29 @@ class ScrollableGui
         left:= top:= right:= bottom:= 0
         ,prevDHW:=detectHiddenWindows(true)
         ,prevWD:=setWinDelay(-1)
-        if (hcntlList:=winGetControlsHwnd(hWnd), hcntlList.Length)    {
-            left:= top:= 0x7FFFFFFFFFFFFFFF, right:= bottom:= 0
-            for hCntl in hcntlList    {
-                if (visibleControlsOnly)    {
-                    if (!controlGetVisible(hCntl))
-                        continue
+        ,found:=false
+        try  {
+            if (hcntlList:=winGetControlsHwnd(hWnd), hcntlList.Length)    {
+                left:= top:= 0x7FFFFFFFFFFFFFFF, right:= bottom:= 0
+                for hCntl in hcntlList    {
+                    if (visibleControlsOnly)    {
+                        if (!controlGetVisible(hCntl))
+                            continue
+                    }
+                    controlGetPos(&cntlX1, &cntlY1, &cntlW, &cntlH, hCntl), cntlX2:=cntlX1+cntlW, cntlY2:=cntlY1+cntlH
+                    ,left  := min(left, cntlX1)
+                    ,top   := min(top, cntlY1)
+                    ,right := max(right, cntlX2)
+                    ,bottom:= max(bottom, cntlY2)
+                    ,found := true
                 }
-                controlGetPos(&cntlX1, &cntlY1, &cntlW, &cntlH, hCntl), cntlX2:=cntlX1+cntlW, cntlY2:=cntlY1+cntlH
-                ,left  := min(left, cntlX1)
-                ,top   := min(top, cntlY1)
-                ,right := max(right, cntlX2)
-                ,bottom:= max(bottom, cntlY2)
             }
+        }  finally  {
+            detectHiddenWindows(prevDHW)
+            ,setWinDelay(prevWD)
         }
-        detectHiddenWindows(prevDHW)
-        ,setWinDelay(prevWD)
+        if (!found)
+            left:= top:= right:= bottom:= 0
         return true
     }
     ;--------------------------------------------------
