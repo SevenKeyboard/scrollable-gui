@@ -6,7 +6,7 @@ It also provides optional **focus-aware wheel routing** for common controls ([Ed
 For version-specific integration code, see the `main-ahkv1` and `main-ahkv2` branches of this repository.  
 For runnable examples, see the `examples/` folder.
 
-![Example 1 – scrollable window and inner controls](docs/01-scrollable-window-and-inner-controls-demo.png)
+![Example 1 – scrollable window and inner controls](docs/ScrollableGui-Preview.png)
 
 ---
 

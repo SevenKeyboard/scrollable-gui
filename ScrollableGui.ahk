@@ -11,7 +11,7 @@ class VersionManager_ScrollableGui
     static _ := this._init()
     static _init()    {
         global
-        SCROLLABLEGUI_VERSION := "1.1.0-alpha"
+        SCROLLABLEGUI_VERSION := "1.1.0"
     }
 }
 class ScrollableGui
@@ -19,7 +19,7 @@ class ScrollableGui
     static init()    {
         this.registerWndProc(-1,-1)
     }
-    static _coord:=map(), _opt:=map(), _hRootWnd:=0
+    static _coord:=map(), _opt:=map()
     ;--------------------------------------------------
     static register(hWnd_or_guiObj, innerScrollOnFocus:=true)    {
         static SIF_DISABLENOSCROLL  := 0x0008
@@ -93,13 +93,11 @@ class ScrollableGui
         return (this._coord.has(hWnd:=this._resolveHwnd(&hWnd_or_guiObj)))
     }
     static syncSize(hWnd_or_guiObj)    {
-        static GA_ROOT:=2
         if (!this._isWindow(hWnd:=this._resolveHwnd(&hWnd_or_guiObj)))
             return false
-        if (!this.isRegistered(hRootWnd:=dllCall("User32.dll\GetAncestor", "Ptr",hWnd, "UInt",GA_ROOT, "Ptr")))
+        if !(hContainerWnd:=this._findRegisteredContainer(hWnd))
             return false
-        this._hRootWnd:=hRootWnd
-        ,this._onSizing()
+        this._onSizing(hContainerWnd)
         return true
     }
     ;--------------------------------------------------
@@ -216,29 +214,43 @@ class ScrollableGui
         }
     }
     static wndProc(wParam, lParam, Msg, hWnd)    { ;  UPtr  Ptr  UInt  Ptr
-        static GA_ROOT:=2
-            ,WM_DESTROY:=0x0002, WM_HSCROLL:=0x0114, WM_VSCROLL:=0x0115, WM_LBUTTONDOWN:=0x0201, WM_MOUSEWHEEL:=0x020A, WM_MOUSEHWHEEL:=0x020E, WM_SIZING:=0x0214, WM_EXITSIZEMOVE:=0x0232
+        static WM_DESTROY:=0x0002, WM_HSCROLL:=0x0114, WM_VSCROLL:=0x0115, WM_LBUTTONDOWN:=0x0201, WM_MOUSEWHEEL:=0x020A, WM_MOUSEHWHEEL:=0x020E, WM_SIZING:=0x0214, WM_EXITSIZEMOVE:=0x0232
         if (Msg==WM_DESTROY)    {
             this.unregister(hWnd)
             return
         }
-        prevIC := critical("On")
-        ret:=""
-        if (this.isRegistered(this._hRootWnd:=dllCall("User32.dll\GetAncestor", "Ptr",hWnd, "UInt",GA_ROOT, "Ptr")&0xffffffff))    {
+        prevIC:=critical("On")
+        try  {
+            if !(hContainerWnd:=this._findRegisteredContainer(hWnd))
+                return
             switch (Msg)
             {
                 ;  case WM_DESTROY:
-                case WM_HSCROLL,WM_VSCROLL:         ret:=this._onScroll(wParam, lParam, Msg, hWnd)
+                case WM_HSCROLL,WM_VSCROLL:         return this._onScroll(hContainerWnd, wParam, lParam, Msg, hWnd)
                 case WM_LBUTTONDOWN:
-                    if (this._hRootWnd==hWnd)
+                    if (hContainerWnd==hWnd)
                         dllCall("User32.dll\SetFocus", "Ptr",0, "Ptr")
-                case WM_MOUSEWHEEL,WM_MOUSEHWHEEL:  ret:=this._onMouseWheel(wParam, lParam, Msg, hWnd)
-                case WM_SIZING:                     ret:=this._onSizing(wParam, lParam, Msg, hWnd)
-                case WM_EXITSIZEMOVE:               ret:=this._onExitSizeMove(wParam, lParam, Msg, hWnd)
+                case WM_MOUSEWHEEL,WM_MOUSEHWHEEL:  return this._onMouseWheel(hContainerWnd, wParam, lParam, Msg, hWnd)
+                case WM_SIZING:                     return this._onSizing(hContainerWnd, wParam, lParam, Msg, hWnd)
+                case WM_EXITSIZEMOVE:               return this._onExitSizeMove(hContainerWnd, wParam, lParam, Msg, hWnd)
             }
+        }  finally  {
+            critical(prevIC)
         }
-        critical(prevIC)
-        return ret
+    }
+    static _findRegisteredContainer(hWnd)    {
+        static GA_PARENT:=1
+        prevHwnd:=0
+        ,hWnd&=0xffffffff
+        while (hWnd)    {
+            if (this.isRegistered(hWnd))
+                return hWnd
+            if (hWnd==prevHwnd)
+                break
+            prevHwnd:=hWnd
+            ,hWnd:=dllCall("User32.dll\GetAncestor", "Ptr",hWnd, "UInt",GA_PARENT, "Ptr")&0xffffffff
+        }
+        return 0
     }
     ;--------------------------------------------------
     static CXVSCROLL    {
@@ -254,7 +266,7 @@ class ScrollableGui
         }
     }
     ;--------------------------------------------------
-    static _onScroll(wParam, _, Msg, hWnd)    {
+    static _onScroll(hContainerWnd, wParam, _, Msg, hWnd)    {
         static WM_HSCROLL       := 0x0114
             ,WM_VSCROLL         := 0x0115
 
@@ -284,8 +296,7 @@ class ScrollableGui
             ,SW_SCROLLCHILDREN  := 0x0001
             ,SW_SMOOTHSCROLL    := 0x0010
 
-        hRootWnd:=this._hRootWnd
-        if (hWnd!==hRootWnd)
+        if (hWnd!==hContainerWnd)
             return
         if (hFocusWnd:=dllCall("User32.dll\GetFocus", "Ptr"))    {
             if (this._getClassName(hFocusWnd)=="Edit" && this._isEditConnectedToUpDown(hFocusWnd))
@@ -295,7 +306,7 @@ class ScrollableGui
         ,lpsi:=buffer(28,0)
         ,numPut("UInt",28,lpsi,0)       ;  cbSize
         ,numput("UInt",SIF_ALL,lpsi,4)  ;  fMask
-        if (!dllCall("User32.dll\GetScrollInfo", "Ptr",hRootWnd, "Int",nBar, "Ptr",lpsi.Ptr))
+        if (!dllCall("User32.dll\GetScrollInfo", "Ptr",hContainerWnd, "Int",nBar, "Ptr",lpsi.Ptr))
             return
         nMin    := numGet(lpsi,8,"Int")
         ,nMax   := numGet(lpsi,12,"Int")
@@ -311,7 +322,7 @@ class ScrollableGui
             case SB_LINERIGHT:                      nNewPos+=30
             case SB_PAGELEFT:
                 lpRect:=buffer(16)
-                ,dllCall("User32.dll\GetClientRect", "Ptr",hRootWnd, "Ptr",lpRect.Ptr)
+                ,dllCall("User32.dll\GetClientRect", "Ptr",hContainerWnd, "Ptr",lpRect.Ptr)
                 ,clientW:=numGet(lpRect,8,"Int")-numGet(lpRect,0,"Int")
                 ,clientH:=numGet(lpRect,12,"Int")-numGet(lpRect,4,"Int")
                 switch (nBar)
@@ -321,7 +332,7 @@ class ScrollableGui
                 }
             case SB_PAGERIGHT:
                 lpRect:=buffer(16)
-                ,dllCall("User32.dll\GetClientRect", "Ptr",hRootWnd, "Ptr",lpRect.Ptr)
+                ,dllCall("User32.dll\GetClientRect", "Ptr",hContainerWnd, "Ptr",lpRect.Ptr)
                 ,clientW:=numGet(lpRect,8,"Int")-numGet(lpRect,0,"Int")
                 ,clientH:=numGet(lpRect,12,"Int")-numGet(lpRect,4,"Int")
                 switch (nBar)
@@ -331,7 +342,7 @@ class ScrollableGui
                 }
             case SB_THUMBPOSITION,SB_THUMBTRACK:    nNewPos:=this._HIWORD(wParam)
         }
-        invisibility:=this._coord[hRootWnd].invisibility
+        invisibility:=this._coord[hContainerWnd].invisibility
         switch (nBar)
         {
             case SB_HORZ:       i:=invisibility.hscroll
@@ -344,11 +355,11 @@ class ScrollableGui
             case SB_HORZ:       dx:=nPrevPos-nNewPos
             default:            dy:=nPrevPos-nNewPos ;  SB_VERT
         }
-        dllCall("User32.dll\ScrollWindowEx", "Ptr",hRootWnd, "Int",dx, "Int",dy, "Ptr",0, "Ptr",0, "Ptr",0, "Ptr",0, "UInt",(SW_ERASE|SW_INVALIDATE|SW_SCROLLCHILDREN)&0xffff, "Int") ;  dllCall("User32.dll\ScrollWindow", "Ptr",hRootWnd, "Int",dx, "Int",dy, "Ptr",0, "Ptr",0)
+        dllCall("User32.dll\ScrollWindowEx", "Ptr",hContainerWnd, "Int",dx, "Int",dy, "Ptr",0, "Ptr",0, "Ptr",0, "Ptr",0, "UInt",(SW_ERASE|SW_INVALIDATE|SW_SCROLLCHILDREN)&0xffff, "Int") ;  dllCall("User32.dll\ScrollWindow", "Ptr",hContainerWnd, "Int",dx, "Int",dy, "Ptr",0, "Ptr",0)
         ,numPut("Int",nNewPos,lpsi,20) ;  nPos
-        ,dllCall("User32.dll\SetScrollInfo", "Ptr",hRootWnd, "Int",nBar, "Ptr",lpsi.Ptr, "Int",true, "Int")
+        ,dllCall("User32.dll\SetScrollInfo", "Ptr",hContainerWnd, "Int",nBar, "Ptr",lpsi.Ptr, "Int",true, "Int")
     }
-    static _onMouseWheel(wParam, _, Msg, hWnd)    {
+    static _onMouseWheel(hContainerWnd, wParam, _, Msg, hWnd)    {
         static WHEEL_DELTA:=120
 
             ,MK_CONTROL := 0x0008
@@ -382,19 +393,18 @@ class ScrollableGui
             ,CB_GETCURSEL   := 0x0147
             ,CB_SETCURSEL   := 0x014E
 
-        hRootWnd:=this._hRootWnd
-        ,lpRect:=buffer(16,0)
-        ,dllCall("User32.dll\GetClientRect", "Ptr",hRootWnd, "Ptr",lpRect.Ptr)
+        lpRect:=buffer(16,0)
+        ,dllCall("User32.dll\GetClientRect", "Ptr",hContainerWnd, "Ptr",lpRect.Ptr)
         ,client:={}
         ,client.left    := numGet(lpRect,0,"Int")
         ,client.top     := numGet(lpRect,4,"Int")
         ,client.right   := numGet(lpRect,8,"Int")
         ,client.bottom  := numGet(lpRect,12,"Int")
-        ,border:=this._coord[hRootWnd].border
+        ,border:=this._coord[hContainerWnd].border
         ;-----------------------------------
         ,ret:=0
         ,pm:={}
-        ,pm.hWnd:=hRootWnd
+        ,pm.hWnd:=hContainerWnd
         ,wheelCount:=abs((wheelDistance:=this._GET_WHEEL_DELTA_WPARAM(wParam))//WHEEL_DELTA)
         ,keyState:=this._GET_KEYSTATE_WPARAM(wParam)
         switch (Msg)
@@ -420,7 +430,7 @@ class ScrollableGui
             return
         }
         ;-----------------------------------
-        switch (this._opt[hRootWnd].innerScrollOnFocus)
+        switch (this._opt[hContainerWnd].innerScrollOnFocus)
         {
             case true:          hCntl:=dllCall("User32.dll\GetFocus", "Ptr")
             default:            hCntl:=hWnd
@@ -439,7 +449,7 @@ class ScrollableGui
                     hasScroll:=style&WS_HSCROLL
             }
             if (hasScroll)    {
-                if (hCntl==hWnd && hCntl!==hRootWnd)    {
+                if (hCntl==hWnd && hCntl!==hContainerWnd)    {
                     switch (pm.Msg)
                     {
                         case WM_VSCROLL:        bRet:=this._getVScrollBarInfo(hCntl, &objsbi)
@@ -496,7 +506,7 @@ class ScrollableGui
             dllCall("User32.dll\PostMessage", "Ptr",pm.hWnd, "UInt",pm.Msg, "UPtr",pm.wParam, "Ptr",pm.lParam)
         return ret
     }
-    static _onSizing(*)    {
+    static _onSizing(hContainerWnd, *)    {
         static SIF_DISABLENOSCROLL  := 0x0008
             ,SIF_PAGE               := 0x0002
             ,SIF_POS                := 0x0004
@@ -527,20 +537,19 @@ class ScrollableGui
             ,RGN_OR                 := 2
             ,RGN_XOR                := 3
 
-        hRootWnd:=this._hRootWnd
-        ,lpsi:=buffer(28,0)
+        lpsi:=buffer(28,0)
         ,numPut("UInt",28,lpsi,0)       ;  cbSize
         ,numPut("UInt",SIF_POS,lpsi,4)  ;  fMask
-        ,dllCall("User32.dll\GetScrollInfo", "Ptr",hRootWnd, "Int",SB_HORZ, "Ptr",lpsi.Ptr)
+        ,dllCall("User32.dll\GetScrollInfo", "Ptr",hContainerWnd, "Int",SB_HORZ, "Ptr",lpsi.Ptr)
         ,nPosHorzPrev:=numGet(lpsi,20,"Int")
         ,lpsi:=buffer(28,0)
         ,numPut("UInt",28,lpsi,0)       ;  cbSize
         ,numput("UInt",SIF_POS,lpsi,4)  ;  fMask
-        ,dllCall("User32.dll\GetScrollInfo", "Ptr",hRootWnd, "Int",SB_VERT, "Ptr",lpsi.Ptr)
+        ,dllCall("User32.dll\GetScrollInfo", "Ptr",hContainerWnd, "Int",SB_VERT, "Ptr",lpsi.Ptr)
         ,nPosVertPrev:=numGet(lpsi,20,"Int")
         ;-----------------------------------
         ,lpRect:=buffer(16,0)
-        ,dllCall("User32.dll\GetClientRect", "Ptr",hRootWnd, "Ptr",lpRect.Ptr)
+        ,dllCall("User32.dll\GetClientRect", "Ptr",hContainerWnd, "Ptr",lpRect.Ptr)
         ,client:={}
         ,client.left    := numGet(lpRect,0,"Int")
         ,client.top     := numGet(lpRect,4,"Int")
@@ -548,14 +557,14 @@ class ScrollableGui
         ,client.bottom  := numGet(lpRect,12,"Int")
         ,client.width   := client.right-client.left
         ,client.height  := client.bottom-client.top
-        ,border:=this._coord[hRootWnd].border
-        ,invisibility:=this._coord[hRootWnd].invisibility
+        ,border:=this._coord[hContainerWnd].border
+        ,invisibility:=this._coord[hContainerWnd].invisibility
         ;-----------------------------------
         ,lpsi:=buffer(28,0)
         ,numPut("UInt",28,lpsi,0), numPut("UInt",SIF_PAGE|SIF_RANGE,lpsi,4)
         ,nPage:=client.height
         ,nMax:=border.bottom-border.top-invisibility.hscroll
-        if (this._getHScrollBarInfo(hRootWnd, &objsbi))    {
+        if (this._getHScrollBarInfo(hContainerWnd, &objsbi))    {
             hscrollBarHeight:=objsbi.rcScrollBar.bottom-objsbi.rcScrollBar.top
             if (!invisibility.hscroll)
                 nPage-=hscrollBarHeight, nMax-=hscrollBarHeight
@@ -564,13 +573,13 @@ class ScrollableGui
         }
         numPut("UInt",nPage,lpsi,16)    ;  nPage
         ,numPut("Int",nMax,lpsi,12)     ;  nMax
-        ,dllCall("User32.dll\SetScrollInfo", "Ptr",hRootWnd, "Int",SB_VERT, "Ptr",lpsi.Ptr, "Int",true)
+        ,dllCall("User32.dll\SetScrollInfo", "Ptr",hContainerWnd, "Int",SB_VERT, "Ptr",lpsi.Ptr, "Int",true)
         ;-----------------------------------
         ,lpsi:=buffer(28,0)
         ,numPut("UInt",28,lpsi,0), numPut("UInt",SIF_PAGE|SIF_RANGE,lpsi,4)
         ,nPage:=client.width
         ,nMax:=border.right-border.left-invisibility.vscroll
-        if (this._getVScrollBarInfo(hRootWnd, &objsbi))    {
+        if (this._getVScrollBarInfo(hContainerWnd, &objsbi))    {
             vscrollBarWidth:=objsbi.rcScrollBar.right-objsbi.rcScrollBar.left
             if (!invisibility.vscroll)
                 nPage-=vscrollBarWidth, nMax-=vscrollBarWidth
@@ -579,34 +588,34 @@ class ScrollableGui
         }
         numPut("UInt",nPage,lpsi,16)    ;  nPage
         ,numPut("Int",nMax,lpsi,12)     ;  nMax
-        ,dllCall("User32.dll\SetScrollInfo", "Ptr",hRootWnd, "Int",SB_HORZ, "Ptr",lpsi.Ptr, "Int",true)
+        ,dllCall("User32.dll\SetScrollInfo", "Ptr",hContainerWnd, "Int",SB_HORZ, "Ptr",lpsi.Ptr, "Int",true)
         ;-----------------------------------       
         ,lpsi:=buffer(28,0)
         ,numPut("UInt",28,lpsi,0)       ;  cbSize
         ,numput("UInt",SIF_POS,lpsi,4)  ;  fMask
-        ,dllCall("User32.dll\GetScrollInfo", "Ptr",hRootWnd, "Int",SB_HORZ, "Ptr",lpsi.Ptr)
+        ,dllCall("User32.dll\GetScrollInfo", "Ptr",hContainerWnd, "Int",SB_HORZ, "Ptr",lpsi.Ptr)
         ,nPosHorzCurr:=numGet(lpsi,20,"Int")
         ,lpsi:=buffer(28,0)
         ,numPut("UInt",28,lpsi,0)       ;  cbSize
         ,numput("UInt",SIF_POS,lpsi,4)  ;  fMask
-        ,dllCall("User32.dll\GetScrollInfo", "Ptr",hRootWnd, "Int",SB_VERT, "Ptr",lpsi.Ptr)
+        ,dllCall("User32.dll\GetScrollInfo", "Ptr",hContainerWnd, "Int",SB_VERT, "Ptr",lpsi.Ptr)
         ,nPosVertCurr:=numGet(lpsi,20,"Int")
         ,dx:=nPosHorzPrev-nPosHorzCurr
         ,dy:=nPosVertPrev-nPosVertCurr
         if (dx||dy)    {
-            dllCall("User32.dll\ScrollWindowEx", "Ptr",hRootWnd, "Int",dx, "Int",dy, "Ptr",0, "Ptr",0, "Ptr",0, "Ptr",0, "UInt",(SW_ERASE|SW_INVALIDATE|SW_SCROLLCHILDREN)&0xffff, "Int") ;  dllCall("User32.dll\ScrollWindow", "Ptr",hRootWnd, "Int",dx, "Int",dy, "Ptr",0, "Ptr",0)
+            dllCall("User32.dll\ScrollWindowEx", "Ptr",hContainerWnd, "Int",dx, "Int",dy, "Ptr",0, "Ptr",0, "Ptr",0, "Ptr",0, "UInt",(SW_ERASE|SW_INVALIDATE|SW_SCROLLCHILDREN)&0xffff, "Int") ;  dllCall("User32.dll\ScrollWindow", "Ptr",hContainerWnd, "Int",dx, "Int",dy, "Ptr",0, "Ptr",0)
             ,hrgnDst:=dllCall("Gdi32.dll\CreateRectRgn", "Int",0, "Int",0, "Int",0, "Int",0, "Ptr")
             ,hrgnSrc1:=dllCall("Gdi32.dll\CreateRectRgn", "Int",0, "Int",0, "Int",dx, "Int",client.height, "Ptr")
             ,hrgnSrc2:=dllCall("Gdi32.dll\CreateRectRgn", "Int",0, "Int",0, "Int",client.width, "Int",dy, "Ptr")
             ,dllCall("Gdi32.dll\CombineRgn", "Ptr",hrgnDst, "Ptr",hrgnSrc1, "Ptr",hrgnSrc2, "Int",RGN_OR, "Int")
-            ,dllCall("User32.dll\RedrawWindow", "Ptr",hRootWnd, "Ptr",0, "Ptr",hrgnDst, "UInt",RDW_UPDATENOW) ;  dllCall("User32.dll\RedrawWindow", "Ptr",hRootWnd, "Ptr",0, "Ptr",0, "UInt",RDW_INVALIDATE|RDW_ERASE|RDW_UPDATENOW)
+            ,dllCall("User32.dll\RedrawWindow", "Ptr",hContainerWnd, "Ptr",0, "Ptr",hrgnDst, "UInt",RDW_UPDATENOW) ;  dllCall("User32.dll\RedrawWindow", "Ptr",hContainerWnd, "Ptr",0, "Ptr",0, "UInt",RDW_INVALIDATE|RDW_ERASE|RDW_UPDATENOW)
             ,dllCall("Gdi32.dll\DeleteObject", "Ptr",hrgnDst)
             ,dllCall("Gdi32.dll\DeleteObject", "Ptr",hrgnSrc1)
             ,dllCall("Gdi32.dll\DeleteObject", "Ptr",hrgnSrc2)
         }
     }
-    static _onExitSizeMove(_1, _2, _3, hWnd)    {
-        if (hWnd==this._hRootWnd)
+    static _onExitSizeMove(hContainerWnd, _1, _2, _3, hWnd)    {
+        if (hWnd==hContainerWnd)
             dllCall("User32.dll\SetFocus", "Ptr",0, "Ptr")
     }
     ;--------------------------------------------------
@@ -659,14 +668,14 @@ class ScrollableGui
     static _isEditConnectedToUpDown(hWnd)    {
         static GW_HWNDNEXT  := 2
             ,UPDOWN_CLASS   := "msctls_updown32"
-        return (this._getClassName(hNextWnd:=dllCall("User32.dll\GetWindow", "Ptr",hWnd, "UInt",GW_HWNDNEXT))==UPDOWN_CLASS
+        return (this._getClassName(hNextWnd:=dllCall("User32.dll\GetWindow", "Ptr",hWnd, "UInt",GW_HWNDNEXT, "Ptr"))==UPDOWN_CLASS
             ?hNextWnd
             :0)
     }
     static _isEditConnectedToComboBox(hWnd)    {
         static GA_PARENT    := 1
             ,WC_COMBOBOX    := "ComboBox"
-        return (this._getClassName(hParentWnd:=dllCall("User32.dll\GetAncestor", "Ptr",hWnd, "UInt",GA_PARENT))==WC_COMBOBOX
+        return (this._getClassName(hParentWnd:=dllCall("User32.dll\GetAncestor", "Ptr",hWnd, "UInt",GA_PARENT, "Ptr"))==WC_COMBOBOX
             ?hParentWnd
             :0)
     }

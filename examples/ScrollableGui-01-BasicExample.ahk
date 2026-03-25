@@ -1,21 +1,23 @@
 ﻿#Requires AutoHotkey v2.0
 #SingleInstance Force
 #Include "%A_ScriptDir%"
-#Include ".\lib\ScrollableGui.ahk"
+#Include "..\ScrollableGui.ahk"
 ScrollableGui.init()
+
 showGui()
 F2::showGui()
 F3::    {
     global myGui
-    if (isSet(myGui) && myGui is gui)
+    if (isSet(myGui) && myGui is Gui)
         myGui.destroy(), myGui := ""
 }
+
 showGui()    {
     global myGui
-    if (isSet(myGui) && myGui is gui)
+    if (isSet(myGui) && myGui is Gui)
         return
     prevIC := critical("On")
-    myGui := gui()
+    myGui := Gui()
     myGui.onEvent("Close", myGui_Close)
     myGui.setFont("Bold s16")
     myGui.add("Text",, " The scrollbar appears automatically.`nThis occurs when the window is resized.")
@@ -39,6 +41,7 @@ showGui()    {
     ScrollableGui.register(myGui)
     critical(prevIC)
 }
+
 myGui_Close(thisGui)    {
     global myGui
     myGui.destroy()
