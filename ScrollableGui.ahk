@@ -11,7 +11,7 @@ class VersionManager_ScrollableGui
     static _ := VersionManager_ScrollableGui._init()
     _init()    {
         global
-        SCROLLABLEGUI_VERSION := "1.0.2"
+        SCROLLABLEGUI_VERSION := "1.1.0-alpha"
     }
 }
 class ScrollableGui
@@ -110,27 +110,34 @@ class ScrollableGui
         left:= top:= right:= bottom:= 0
         detectHiddenWindows % format("{2}",prevDHW:=A_DetectHiddenWindows,"On")
         setWinDelay % format("{2}",prevWD:=A_WinDelay,-1)
-        winGet controlListHwnd, ControlListHwnd, % "ahk_id " hWnd
-        if (controlListHwnd!=="")    {
-            left:= top:= 0x7FFFFFFFFFFFFFFF, right:= bottom:= 0
-            loop Parse, % controlListHwnd, % "`n"
-            {
-                if (visibleControlsOnly)    {
-                    controlGet visible, Visible,,, % "ahk_id " A_LoopField
-                    if (!visible)
-                        continue
+        found:=false
+        try  {
+            winGet controlListHwnd, ControlListHwnd, % "ahk_id " hWnd
+            if (controlListHwnd!=="")    {
+                left:= top:= 0x7FFFFFFFFFFFFFFF, right:= bottom:= 0
+                loop Parse, % controlListHwnd, % "`n"
+                {
+                    if (visibleControlsOnly)    {
+                        controlGet visible, Visible,,, % "ahk_id " A_LoopField
+                        if (!visible)
+                            continue
+                    }
+                    controlGetPos cntlX1, cntlY1, cntlW, cntlH,, % "ahk_id " A_LoopField
+                    cntlX2:=cntlX1+cntlW, cntlY2:=cntlY1+cntlH
+                    ,left  := min(left, cntlX1)
+                    ,top   := min(top, cntlY1)
+                    ,right := max(right, cntlX2)
+                    ,bottom:= max(bottom, cntlY2)
+                    ,found := true
                 }
-                controlGetPos cntlX1, cntlY1, cntlW, cntlH,, % "ahk_id " A_LoopField
-                cntlX2:=cntlX1+cntlW, cntlY2:=cntlY1+cntlH
-                ,left  := min(left, cntlX1)
-                ,top   := min(top, cntlY1)
-                ,right := max(right, cntlX2)
-                ,bottom:= max(bottom, cntlY2)
             }
+        }  finally  {
+            detectHiddenWindows % prevDHW
+            setWinDelay % prevWD
+            setBatchLines % prevBL
         }
-        detectHiddenWindows % prevDHW
-        setWinDelay % prevWD
-        setBatchLines % prevBL
+        if (!found)
+            left:= top:= right:= bottom:= 0
         return true
     }
     ;--------------------------------------------------
