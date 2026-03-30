@@ -11,7 +11,7 @@ class VersionManager_ScrollableGui
     static _ := this._init()
     static _init()    {
         global
-        SCROLLABLEGUI_VERSION := "1.1.0"
+        SCROLLABLEGUI_VERSION := "1.1.1"
     }
 }
 class ScrollableGui
@@ -340,7 +340,7 @@ class ScrollableGui
                     case SB_HORZ:       nNewPos+=clientW
                     default:            nNewPos+=clientH
                 }
-            case SB_THUMBPOSITION,SB_THUMBTRACK:    nNewPos:=this._HIWORD(wParam)
+            case SB_THUMBPOSITION,SB_THUMBTRACK:    nNewPos:=nTrackPos ;  Use nTrackPos from GetScrollInfo; HIWORD(wParam) is only 16-bit.
         }
         invisibility:=this._coord[hContainerWnd].invisibility
         switch (nBar)
