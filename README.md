@@ -87,7 +87,7 @@ Project threads:
 ---
 
 ## Credits
-Special thanks to @Lexikos. Without the original forum post  
+Special thanks to [@Lexikos](https://github.com/Lexikos). Without the original forum post  
 [Scrollable GUI - Proof of Concept](https://www.autohotkey.com/board/topic/26033-scrollable-gui-proof-of-concept/#entry168174),  
 this project would not have been possible to begin in the first place.
 
