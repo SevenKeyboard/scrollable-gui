@@ -11,7 +11,7 @@ class VersionManager_ScrollableGui
     static _ := this._init()
     static _init()    {
         global
-        SCROLLABLEGUI_VERSION := "1.1.1"
+        SCROLLABLEGUI_VERSION := "1.1.2"
     }
 }
 class ScrollableGui
@@ -110,18 +110,21 @@ class ScrollableGui
         ,found:=false
         try  {
             if (hcntlList:=winGetControlsHwnd(hWnd), hcntlList.Length)    {
-                left:= top:= 0x7FFFFFFFFFFFFFFF, right:= bottom:= 0
                 for hCntl in hcntlList    {
                     if (visibleControlsOnly)    {
                         if (!controlGetVisible(hCntl))
                             continue
                     }
                     controlGetPos(&cntlX1, &cntlY1, &cntlW, &cntlH, hCntl), cntlX2:=cntlX1+cntlW, cntlY2:=cntlY1+cntlH
-                    ,left  := min(left, cntlX1)
-                    ,top   := min(top, cntlY1)
-                    ,right := max(right, cntlX2)
-                    ,bottom:= max(bottom, cntlY2)
-                    ,found := true
+                    if (!found)    {
+                        left:=cntlX1, top:=cntlY1, right:=cntlX2, bottom:=cntlY2
+                        ,found:=true
+                    }  else  {
+                        left  := min(left, cntlX1)
+                        ,top   := min(top, cntlY1)
+                        ,right := max(right, cntlX2)
+                        ,bottom:= max(bottom, cntlY2)
+                    }
                 }
             }
         }  finally  {
@@ -155,30 +158,37 @@ class ScrollableGui
         ,this._registerBoundarySize(hWnd,,, (isSet(newWidth) ? border.left + newWidth : unset), (isSet(newHeight) ? border.top + newHeight : unset))
         if (setMaxSize)    {
             showOptions:=""
-            if (newWidth<prevWidth)
+            if (isSet(newWidth) && newWidth<prevWidth)
                 showOptions.="w" newWidth
-            if (newHeight<prevHeight)
+            if (isSet(newHeight) && newHeight<prevHeight)
                 showOptions.=(showOptions==""?"":" ") "h" newHeight
-            prevDHW:=detectHiddenWindows(true)
-            ,prevWD:=setWinDelay(-1)
-            ,guiObj.getPos(&guiX, &guiY, &guiW, &guiH), winGetPos(&winX, &winY, &winW, &winH, hWnd)
-            switch (guiDpiScaled:=(guiW !== winW || guiH !== winH))
-            {
-                default:
-                    guiObj.opt("+MaxSize" (newWidth??"") "x" (newHeight??""))
-                    if (showOptions !== "")
-                        guiObj.show(showOptions)
-                case true:
-                    prevIC:=critical("On")
-                    ,guiObj.opt("-DPIScale")
-                    ,guiObj.opt("+MaxSize" (newWidth??"") "x" (newHeight??""))
-                    if (showOptions !== "")
-                        guiObj.show(showOptions)
-                    guiObj.opt("+DPIScale")
-                    ,critical(prevIC)
+            prevWD:=setWinDelay(-1)
+            try  {
+                guiObj.getPos(&guiX, &guiY, &guiW, &guiH), winGetPos(&winX, &winY, &winW, &winH, hWnd)
+                switch (guiDpiScaled:=(guiW !== winW || guiH !== winH))
+                {
+                    default:
+                        guiObj.opt("+MaxSize" (newWidth??"") "x" (newHeight??""))
+                        if (showOptions !== "")
+                            guiObj.show(showOptions)
+                    case true:
+                        prevIC:=critical("On")
+                        try  {
+                            guiObj.opt("-DPIScale")
+                            try  {
+                                guiObj.opt("+MaxSize" (newWidth??"") "x" (newHeight??""))
+                                if (showOptions !== "")
+                                    guiObj.show(showOptions)
+                            }  finally  {
+                                guiObj.opt("+DPIScale")
+                            }
+                        }  finally  {
+                            critical(prevIC)
+                        }
+                }
+            }  finally  {
+                setWinDelay(prevWD)
             }
-            detectHiddenWindows(prevDHW)
-            ,setWinDelay(prevWD)
         }
         this.syncSize(hWnd)
         return true
@@ -495,7 +505,7 @@ class ScrollableGui
                     ,count:=dllCall("User32.dll\SendMessage", "Ptr",hComboBoxWnd, "UInt",CB_GETCOUNT, "UPtr",0, "Ptr",0, "Int")
                     if (count!==CB_ERR && count!==0)    {
                         curSel:=dllCall("User32.dll\SendMessage", "Ptr",hComboBoxWnd, "UInt",CB_GETCURSEL, "UPtr",0, "Ptr",0, "Int")
-                        ,newSel:=curSel==CB_ERR?0:max(0,min(count,curSel-wheelDistance//WHEEL_DELTA))
+                        ,newSel:=curSel==CB_ERR?0:max(0,min(count-1,curSel-wheelDistance//WHEEL_DELTA))
                         ,dllCall("User32.dll\SendMessage", "Ptr",hComboBoxWnd, "UInt",CB_SETCURSEL, "Int",newSel, "Ptr",0, "Ptr")
                     }
                 }
