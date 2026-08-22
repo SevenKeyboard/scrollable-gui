@@ -11,7 +11,7 @@ class VersionManager_ScrollableGui
     static _ := VersionManager_ScrollableGui._init()
     _init()    {
         global
-        SCROLLABLEGUI_VERSION := "1.1.2"
+        SCROLLABLEGUI_VERSION := "1.1.3"
     }
 }
 class ScrollableGui
@@ -58,7 +58,7 @@ class ScrollableGui
             this._coord[hWnd].border[k]:=client[k]
         border:=this._coord[hWnd].border
         ,invisibility:=this._coord[hWnd].invisibility
-        ,this._opt[hWnd] := {innerScrollOnFocus:(!!innerScrollOnFocus)}
+        ,this._opt[hWnd] := {innerScrollOnFocus:(!!innerScrollOnFocus),wheelResidual:object()}
         ;-----------------------------------
         ,varSetCapacity(lpsi,28,0)
         ,numPut(28,lpsi,0,"UInt"), numPut(SIF_PAGE|SIF_POS|SIF_RANGE,lpsi,4,"UInt")
@@ -373,9 +373,7 @@ class ScrollableGui
         ,dllCall("User32.dll\SetScrollInfo", "Ptr",hContainerWnd, "Int",nBar, "Ptr",&lpsi, "Int",true, "Int")
     }
     _onMouseWheel(hContainerWnd, wParam, _, Msg, hWnd)    {
-        static WHEEL_DELTA:=120
-
-            ,MK_CONTROL := 0x0008
+        static MK_CONTROL := 0x0008
             ,MK_LBUTTON := 0x0001
             ,MK_MBUTTON := 0x0010
             ,MK_RBUTTON := 0x0002
@@ -415,25 +413,25 @@ class ScrollableGui
         ,client.bottom  := numGet(lpRect,12,"Int")
         ,border:=this._coord[hContainerWnd].border
         ;-----------------------------------
-        ,ret:=0
         ,pm:={}
         ,pm.hWnd:=hContainerWnd
-        ,wheelCount:=abs((wheelDistance:=this._GET_WHEEL_DELTA_WPARAM(wParam))//WHEEL_DELTA)
+        ,wheelDistance:=this._GET_WHEEL_DELTA_WPARAM(wParam)
         ,keyState:=this._GET_KEYSTATE_WPARAM(wParam)
         switch (Msg)
         {
             case WM_MOUSEWHEEL:     pm.Msg:=(!(keyState&MK_CONTROL)&&(keyState&MK_SHIFT))?WM_HSCROLL:WM_VSCROLL
             default:                pm.Msg:=WM_HSCROLL ;  WM_MOUSEHWHEEL
         }
-        pm.wParam:=(wheelDistance<0?SB_LINERIGHT:SB_LINELEFT)
-        ,pm.lParam:=0
+        pm.lParam:=0
         if !(border.left<client.left || border.top<client.top || client.right<border.right || client.bottom<border.bottom)    {
             if (pm.Msg==WM_HSCROLL)    {
                 style:=this._getWindowStyle(hWnd)
                 if (hasScroll:=style&WS_HSCROLL)    {
                     if (bRet:=this._getHScrollBarInfo(hWnd, objsbi))    {
                         if !(objsbi.rgstate.0&STATE_SYSTEM_UNAVAILABLE)    {
-                            loop % (wheelCount*3)
+                            wheelSteps:=this._consumeWheelDelta(hContainerWnd,hWnd,pm.Msg,Msg,wheelDistance)
+                            ,pm.wParam:=(wheelSteps<0?SB_LINERIGHT:SB_LINELEFT)
+                            loop % (abs(wheelSteps)*3)
                                 dllCall("User32.dll\PostMessage", "Ptr",hWnd, "UInt",pm.Msg, "UPtr",pm.wParam, "Ptr",pm.lParam)
                             return 0
                         }
@@ -471,11 +469,13 @@ class ScrollableGui
                     if (bRet)    {
                         if !(objsbi.rgstate.0&STATE_SYSTEM_UNAVAILABLE)    {
                             if (pm.Msg==WM_HSCROLL)    {
-                                loop % (wheelCount*3)
+                                wheelSteps:=this._consumeWheelDelta(hContainerWnd,hCntl,pm.Msg,Msg,wheelDistance)
+                                ,pm.wParam:=(wheelSteps<0?SB_LINERIGHT:SB_LINELEFT)
+                                loop % (abs(wheelSteps)*3)
                                     dllCall("User32.dll\PostMessage", "Ptr",hCntl, "UInt",pm.Msg, "UPtr",pm.wParam, "Ptr",pm.lParam)
-                                wheelCount:=0, ret:=0
+                                return 0
                             }  else  {
-                                wheelCount:=0, ret:=""
+                                return
                             }
                         }
                     }
@@ -487,15 +487,18 @@ class ScrollableGui
                     case "ComboBox":                hComboBoxWnd:=hCntl
                     case "Edit": ;  UpDown
                         if (hUpDownWnd:=this._isEditConnectedToUpDown(hCntl))    {
-                            wheelCount:=0, ret:=0
-                            ,pos32:=dllCall("User32.dll\SendMessage", "Ptr",hUpDownWnd, "UInt",UDM_GETPOS32, "UPtr",0, "Ptr",0)
-                            ,dllCall("User32.dll\SendMessage", "Ptr",hUpDownWnd, "UInt",UDM_SETPOS32, "UPtr",0, "Ptr",pos32+wheelDistance//WHEEL_DELTA)
+                            wheelSteps:=this._consumeWheelDelta(hContainerWnd,hUpDownWnd,pm.Msg,Msg,wheelDistance)
+                            if (wheelSteps)    {
+                                pos32:=dllCall("User32.dll\SendMessage", "Ptr",hUpDownWnd, "UInt",UDM_GETPOS32, "UPtr",0, "Ptr",0)
+                                ,dllCall("User32.dll\SendMessage", "Ptr",hUpDownWnd, "UInt",UDM_SETPOS32, "UPtr",0, "Ptr",pos32+wheelSteps)
+                            }
                             /*
                              About Up-Down Controls
                             https://learn.microsoft.com/en-us/windows/win32/controls/up-down-controls
                              Up-Down Control
                             https://learn.microsoft.com/en-us/windows/win32/controls/up-down-control-reference
                             */
+                            return 0
                         }  else if (hComboBoxWnd:=this._isEditConnectedToComboBox(hCntl))    {
                             /*
                              ComboBox Control Messages
@@ -504,20 +507,34 @@ class ScrollableGui
                         }
                 }
                 if (hComboBoxWnd)    {
-                    wheelCount:=0, ret:=0                           
-                    ,count:=dllCall("User32.dll\SendMessage", "Ptr",hComboBoxWnd, "UInt",CB_GETCOUNT, "UPtr",0, "Ptr",0, "Int")
-                    if (count!==CB_ERR && count!==0)    {
-                        curSel:=dllCall("User32.dll\SendMessage", "Ptr",hComboBoxWnd, "UInt",CB_GETCURSEL, "UPtr",0, "Ptr",0, "Int")
-                        ,newSel:=curSel==CB_ERR?0:max(0,min(count-1,curSel-wheelDistance//WHEEL_DELTA))
-                        ,dllCall("User32.dll\SendMessage", "Ptr",hComboBoxWnd, "UInt",CB_SETCURSEL, "Int",newSel, "Ptr",0, "Ptr")
+                    wheelSteps:=this._consumeWheelDelta(hContainerWnd,hComboBoxWnd,pm.Msg,Msg,wheelDistance)
+                    if (wheelSteps)    {
+                        count:=dllCall("User32.dll\SendMessage", "Ptr",hComboBoxWnd, "UInt",CB_GETCOUNT, "UPtr",0, "Ptr",0, "Int")
+                        if (count!==CB_ERR && count!==0)    {
+                            curSel:=dllCall("User32.dll\SendMessage", "Ptr",hComboBoxWnd, "UInt",CB_GETCURSEL, "UPtr",0, "Ptr",0, "Int")
+                            ,newSel:=curSel==CB_ERR?0:max(0,min(count-1,curSel-wheelSteps))
+                            ,dllCall("User32.dll\SendMessage", "Ptr",hComboBoxWnd, "UInt",CB_SETCURSEL, "Int",newSel, "Ptr",0, "Ptr")
+                        }
                     }
+                    return 0
                 }
             }
         }
         ;-----------------------------------
-        loop % (wheelCount)
+        wheelSteps:=this._consumeWheelDelta(hContainerWnd,hContainerWnd,pm.Msg,Msg,wheelDistance)
+        ,pm.wParam:=(wheelSteps<0?SB_LINERIGHT:SB_LINELEFT)
+        loop % (abs(wheelSteps))
             dllCall("User32.dll\PostMessage", "Ptr",pm.hWnd, "UInt",pm.Msg, "UPtr",pm.wParam, "Ptr",pm.lParam)
-        return ret
+        return 0
+    }
+    _consumeWheelDelta(hContainerWnd, hTargetWnd, scrollMsg, wheelMsg, wheelDistance)    {
+        static WHEEL_DELTA:=120
+        residuals:=this._opt[hContainerWnd].wheelResidual
+        ,key:=(hTargetWnd&0xffffffff) "|" scrollMsg "|" wheelMsg
+        ,residual:=(residuals.hasKey(key)?residuals[key]:0)+wheelDistance
+        ,wheelSteps:=residual//WHEEL_DELTA
+        ,residuals[key]:=residual-wheelSteps*WHEEL_DELTA
+        return wheelSteps
     }
     _onSizing(hContainerWnd, _*)    {
         static SIF_DISABLENOSCROLL  := 0x0008
