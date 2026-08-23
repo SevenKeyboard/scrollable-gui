@@ -11,7 +11,7 @@ class VersionManager_ScrollableGui
     static _ := VersionManager_ScrollableGui._init()
     _init()    {
         global
-        SCROLLABLEGUI_VERSION := "1.1.3"
+        SCROLLABLEGUI_VERSION := "1.1.4"
     }
 }
 class ScrollableGui
@@ -165,7 +165,8 @@ class ScrollableGui
         border:=this._coord[hWnd].border
         ,prevWidth:=border.right-border.left
         ,prevHeight:=border.bottom-border.top
-        ,this._registerBoundarySize(hWnd,,, (newWidth!=="" ? border.left + newWidth : ""), (newHeight!=="" ? border.top + newHeight : ""))
+        if (!this._registerBoundarySize(hWnd,,, (newWidth!=="" ? border.left + newWidth : ""), (newHeight!=="" ? border.top + newHeight : "")))
+            return false
         if (setMaxSize)    {
             showOptions:=""
             if (newWidth!=="" && newWidth<prevWidth)
@@ -279,7 +280,7 @@ class ScrollableGui
         }
     }
     ;--------------------------------------------------
-    _onScroll(hContainerWnd, wParam, _, Msg, hWnd)    {
+    _onScroll(hContainerWnd, wParam, lParam, Msg, hWnd)    {
         static WM_HSCROLL       := 0x0114
             ,WM_VSCROLL         := 0x0115
 
@@ -312,7 +313,7 @@ class ScrollableGui
         if (hWnd!==hContainerWnd)
             return
         if (hFocusWnd:=dllCall("User32.dll\GetFocus", "Ptr"))    {
-            if (this._getClassName(hFocusWnd)=="Edit" && this._isEditConnectedToUpDown(hFocusWnd))
+            if (this._getClassName(hFocusWnd)=="Edit" && (hUpDownWnd:=this._isEditConnectedToUpDown(hFocusWnd)) && hUpDownWnd==lParam)
                 return
         }
         nBar:=(Msg==WM_HSCROLL?SB_HORZ:SB_VERT)
@@ -422,13 +423,15 @@ class ScrollableGui
             case WM_MOUSEWHEEL:     pm.Msg:=(!(keyState&MK_CONTROL)&&(keyState&MK_SHIFT))?WM_HSCROLL:WM_VSCROLL
             default:                pm.Msg:=WM_HSCROLL ;  WM_MOUSEHWHEEL
         }
+        if (Msg==WM_MOUSEHWHEEL)
+            wheelDistance:=-wheelDistance
         pm.lParam:=0
         if !(border.left<client.left || border.top<client.top || client.right<border.right || client.bottom<border.bottom)    {
             if (pm.Msg==WM_HSCROLL)    {
                 style:=this._getWindowStyle(hWnd)
                 if (hasScroll:=style&WS_HSCROLL)    {
                     if (bRet:=this._getHScrollBarInfo(hWnd, objsbi))    {
-                        if !(objsbi.rgstate.0&STATE_SYSTEM_UNAVAILABLE)    {
+                        if !(objsbi.rgstate.0&(STATE_SYSTEM_UNAVAILABLE|STATE_SYSTEM_INVISIBLE|STATE_SYSTEM_OFFSCREEN))    {
                             wheelSteps:=this._consumeWheelDelta(hContainerWnd,hWnd,pm.Msg,Msg,wheelDistance)
                             ,pm.wParam:=(wheelSteps<0?SB_LINERIGHT:SB_LINELEFT)
                             loop % (abs(wheelSteps)*3)
@@ -467,7 +470,7 @@ class ScrollableGui
                         default:                bRet:=this._getHScrollBarInfo(hCntl, objsbi) ;  WM_HSCROLL
                     }
                     if (bRet)    {
-                        if !(objsbi.rgstate.0&STATE_SYSTEM_UNAVAILABLE)    {
+                        if !(objsbi.rgstate.0&(STATE_SYSTEM_UNAVAILABLE|STATE_SYSTEM_INVISIBLE|STATE_SYSTEM_OFFSCREEN))    {
                             if (pm.Msg==WM_HSCROLL)    {
                                 wheelSteps:=this._consumeWheelDelta(hContainerWnd,hCntl,pm.Msg,Msg,wheelDistance)
                                 ,pm.wParam:=(wheelSteps<0?SB_LINERIGHT:SB_LINELEFT)
@@ -480,7 +483,7 @@ class ScrollableGui
                         }
                     }
                 }
-            }  else  {
+            }  else if (Msg==WM_MOUSEWHEEL)  {
                 hComboBoxWnd:=0
                 switch (this._getClassName(hCntl))
                 {
@@ -701,8 +704,10 @@ class ScrollableGui
     }
     _isEditConnectedToUpDown(hWnd)    {
         static GW_HWNDNEXT  := 2
+            ,UDM_GETBUDDY   := (0x0400 + 106) ;  (WM_USER+106)
             ,UPDOWN_CLASS   := "msctls_updown32"
         return (this._getClassName(hNextWnd:=dllCall("User32.dll\GetWindow", "Ptr",hWnd, "UInt",GW_HWNDNEXT, "Ptr"))==UPDOWN_CLASS
+            && dllCall("User32.dll\SendMessage", "Ptr",hNextWnd, "UInt",UDM_GETBUDDY, "UPtr",0, "Ptr",0, "Ptr")==hWnd
             ?hNextWnd
             :0)
     }
