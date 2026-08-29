@@ -11,7 +11,7 @@ class VersionManager_ScrollableGui
     static _ := this._init()
     static _init()    {
         global
-        SCROLLABLEGUI_VERSION := "1.2.0"
+        SCROLLABLEGUI_VERSION := "1.2.1"
     }
 }
 class ScrollableGui
@@ -152,8 +152,11 @@ class ScrollableGui
         ,prevHeight:=border.bottom-border.top
         ,scrollX:=this._getScrollPos(hWnd,SB_HORZ)
         ,scrollY:=this._getScrollPos(hWnd,SB_VERT)
-        ,newWidth:=max(prevWidth, right+scrollX+guiObj.MarginX)
-        ,newHeight:=max(prevHeight, bottom+scrollY+guiObj.MarginY)
+        ,dpiScale:=this._isGuiDpiScaled(guiObj,hWnd)?A_ScreenDPI/96:1
+        ,marginX:=round(guiObj.MarginX*dpiScale)
+        ,marginY:=round(guiObj.MarginY*dpiScale)
+        ,newWidth:=max(prevWidth, right+scrollX+marginX)
+        ,newHeight:=max(prevHeight, bottom+scrollY+marginY)
         if (newWidth==prevWidth && newHeight==prevHeight)
             return true
         return this.updateBoundary(hWnd, newWidth, newHeight, setMaxSize)
@@ -188,8 +191,7 @@ class ScrollableGui
                 showOptions.=(showOptions==""?"":" ") "h" newHeight
             prevWD:=setWinDelay(-1)
             try  {
-                guiObj.getPos(&guiX, &guiY, &guiW, &guiH), winGetPos(&winX, &winY, &winW, &winH, hWnd)
-                switch (guiDpiScaled:=(guiW !== winW || guiH !== winH))
+                switch (this._isGuiDpiScaled(guiObj,hWnd))
                 {
                     default:
                         guiObj.opt("+MaxSize" (newWidth??"") "x" (newHeight??""))
@@ -218,6 +220,10 @@ class ScrollableGui
         return true
     }
     static _getRegisteredBoundarySize(hWnd) => this._coord.has(hWnd)?this._coord[hWnd].border.clone():""
+    static _isGuiDpiScaled(guiObj, hWnd)    {
+        guiObj.getPos(,,&guiW,&guiH), winGetPos(,,&winW,&winH,hWnd)
+        return guiW !== winW || guiH !== winH
+    }
     static _getScrollPos(hWnd, nBar)    {
         static SIF_POS:=0x0004
         lpsi:=buffer(28,0)
