@@ -11,7 +11,7 @@ class VersionManager_ScrollableGui
     static _ := VersionManager_ScrollableGui._init()
     _init()    {
         global
-        SCROLLABLEGUI_VERSION := "1.1.4"
+        SCROLLABLEGUI_VERSION := "1.2.0"
     }
 }
 class ScrollableGui
@@ -101,7 +101,8 @@ class ScrollableGui
         return true
     }
     ;--------------------------------------------------
-    calculateInnerControlsSize(hWnd, byRef left:="", byRef top:="", byRef right:="", byRef bottom:="", visibleControlsOnly:=true)    {
+    calculateInnerControlsSize(hWnd, byRef left:="", byRef top:="", byRef right:="", byRef bottom:="", visibleControlsOnly:=1)    {
+        static WS_VISIBLE:=0x10000000
         if (!this._isWindow(hWnd:=this._resolveHwnd(hWnd)))
             return false
         setBatchLines % format("{2}",prevBL:=A_BatchLines,-1)
@@ -115,12 +116,20 @@ class ScrollableGui
                 loop Parse, % controlListHwnd, % "`n"
                 {
                     if (visibleControlsOnly)    {
-                        controlGet visible, Visible,,, % "ahk_id " A_LoopField
-                        if (!visible)
-                            continue
+                        if (visibleControlsOnly==2)    {
+                            if (!(this._getWindowStyle(A_LoopField)&WS_VISIBLE))
+                                continue
+                        }  else  {
+                            controlGet visible, Visible,,, % "ahk_id " A_LoopField
+                            if (!visible)
+                                continue
+                        }
                     }
-                    controlGetPos cntlX1, cntlY1, cntlW, cntlH,, % "ahk_id " A_LoopField
-                    cntlX2:=cntlX1+cntlW, cntlY2:=cntlY1+cntlH
+                    varSetCapacity(cntlRect,16,0)
+                    ,dllCall("User32.dll\GetWindowRect", "Ptr",A_LoopField, "Ptr",&cntlRect)
+                    ,dllCall("User32.dll\MapWindowPoints", "Ptr",0, "Ptr",hWnd, "Ptr",&cntlRect, "UInt",2)
+                    ,cntlX1:=numGet(cntlRect,0,"Int"), cntlY1:=numGet(cntlRect,4,"Int")
+                    ,cntlX2:=numGet(cntlRect,8,"Int"), cntlY2:=numGet(cntlRect,12,"Int")
                     if (!found)    {
                         left:=cntlX1, top:=cntlY1, right:=cntlX2, bottom:=cntlY2
                         ,found:=true
@@ -192,8 +201,42 @@ class ScrollableGui
         this.syncSize(hWnd)
         return true
     }
+    expandBoundaryToControls(guiName:="", visibleControlsOnly:=2, setMaxSize:=true, marginX:=10, marginY:=6, guiDpiScaled:=true)    {
+        static SB_HORZ:=0, SB_VERT:=1
+        if (guiName=="")
+            guiName:=A_DefaultGui
+        gui % guiName ":+LastFoundExist"
+        hWnd:=winExist()
+        if (!hWnd)
+            return false
+        hWnd:=this._resolveHwnd(hWnd)
+        if (!this._coord.hasKey(hWnd))
+            return false
+        if (!this.calculateInnerControlsSize(hWnd,left,top,right,bottom,visibleControlsOnly))
+            return false
+        border:=this._coord[hWnd].border
+        ,prevWidth:=border.right-border.left
+        ,prevHeight:=border.bottom-border.top
+        ,dpiScale:=guiDpiScaled?A_ScreenDPI/96:1
+        ,scrollX:=this._getScrollPos(hWnd,SB_HORZ)
+        ,scrollY:=this._getScrollPos(hWnd,SB_VERT)
+        ,newWidth:=max(prevWidth,right+scrollX+round(marginX*dpiScale))
+        ,newHeight:=max(prevHeight,bottom+scrollY+round(marginY*dpiScale))
+        if (newWidth==prevWidth && newHeight==prevHeight)
+            return true
+        return this.updateBoundary(guiName,guiDpiScaled,newWidth,newHeight,setMaxSize)
+    }
     _getRegisteredBoundarySize(hWnd)    {
         return this._coord.hasKey(hWnd)?this._coord[hWnd].border.clone():""
+    }
+    _getScrollPos(hWnd, nBar)    {
+        static SIF_POS:=0x0004
+        varSetCapacity(lpsi,28,0)
+        ,numPut(28,lpsi,0,"UInt")
+        ,numPut(SIF_POS,lpsi,4,"UInt")
+        if (!dllCall("User32.dll\GetScrollInfo", "Ptr",hWnd, "Int",nBar, "Ptr",&lpsi))
+            return 0
+        return numGet(lpsi,20,"Int")
     }
     _registerBoundarySize(hWnd, left:="", top:="", right:="", bottom:="")    {
         if (!this._coord.hasKey(hWnd))
