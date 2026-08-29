@@ -11,7 +11,7 @@ class VersionManager_ScrollableGui
     static _ := this._init()
     static _init()    {
         global
-        SCROLLABLEGUI_VERSION := "1.1.4"
+        SCROLLABLEGUI_VERSION := "1.2.0"
     }
 }
 class ScrollableGui
@@ -101,7 +101,8 @@ class ScrollableGui
         return true
     }
     ;--------------------------------------------------
-    static calculateInnerControlsSize(hWnd_or_guiObj, &left?, &top?, &right?, &bottom?, visibleControlsOnly:=true)    {
+    static calculateInnerControlsSize(hWnd_or_guiObj, &left?, &top?, &right?, &bottom?, visibleControlsOnly:=1)    {
+        static WS_VISIBLE:=0x10000000
         if (!this._isWindow(hWnd:=this._resolveHwnd(&hWnd_or_guiObj)))
             return false
         left:= top:= right:= bottom:= 0
@@ -112,7 +113,9 @@ class ScrollableGui
             if (hcntlList:=winGetControlsHwnd(hWnd), hcntlList.Length)    {
                 for hCntl in hcntlList    {
                     if (visibleControlsOnly)    {
-                        if (!controlGetVisible(hCntl))
+                        if (visibleControlsOnly==2
+                            ?!(this._getWindowStyle(hCntl)&WS_VISIBLE)
+                            :!controlGetVisible(hCntl))
                             continue
                     }
                     controlGetPos(&cntlX1, &cntlY1, &cntlW, &cntlH, hCntl), cntlX2:=cntlX1+cntlW, cntlY2:=cntlY1+cntlH
@@ -134,6 +137,26 @@ class ScrollableGui
         if (!found)
             left:= top:= right:= bottom:= 0
         return true
+    }
+    static expandBoundaryToControls(hWnd_or_guiObj, visibleControlsOnly:=2, setMaxSize:=true)    {
+        static SB_HORZ:=0, SB_VERT:=1
+        hWnd:=this._resolveHwnd(&hWnd_or_guiObj)
+        if (!this._coord.has(hWnd))
+        || (!this._isWindow(hWnd))
+        || !(guiObj:=guiFromHwnd(hWnd))
+            return false
+        if (!this.calculateInnerControlsSize(hWnd, &left, &top, &right, &bottom, visibleControlsOnly))
+            return false
+        border:=this._coord[hWnd].border
+        ,prevWidth:=border.right-border.left
+        ,prevHeight:=border.bottom-border.top
+        ,scrollX:=this._getScrollPos(hWnd,SB_HORZ)
+        ,scrollY:=this._getScrollPos(hWnd,SB_VERT)
+        ,newWidth:=max(prevWidth, right+scrollX+guiObj.MarginX)
+        ,newHeight:=max(prevHeight, bottom+scrollY+guiObj.MarginY)
+        if (newWidth==prevWidth && newHeight==prevHeight)
+            return true
+        return this.updateBoundary(hWnd, newWidth, newHeight, setMaxSize)
     }
     ;--------------------------------------------------
     static getBoundary(hWnd_or_guiObj, &width?, &height?)    {
@@ -195,6 +218,15 @@ class ScrollableGui
         return true
     }
     static _getRegisteredBoundarySize(hWnd) => this._coord.has(hWnd)?this._coord[hWnd].border.clone():""
+    static _getScrollPos(hWnd, nBar)    {
+        static SIF_POS:=0x0004
+        lpsi:=buffer(28,0)
+        ,numPut("UInt",28,lpsi,0)
+        ,numPut("UInt",SIF_POS,lpsi,4)
+        if (!dllCall("User32.dll\GetScrollInfo", "Ptr",hWnd, "Int",nBar, "Ptr",lpsi.Ptr))
+            return 0
+        return numGet(lpsi,20,"Int")
+    }
     static _registerBoundarySize(hWnd, left?, top?, right?, bottom?)    {
         if (!this._coord.has(hWnd))
             return false

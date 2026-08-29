@@ -18,8 +18,9 @@ For runnable examples, see the `examples/` folder.
 - Resize-aware updates  
   - Recalculates scroll ranges/pages during sizing
   - Scrolls window contents to match the new scroll positions
-- Helpers  
+- Helpers
   - Calculate the bounding rectangle of child controls
+  - Explicitly expand the stored boundary to include child controls
   - Update the stored content boundary and optionally apply GUI MaxSize
 
 ---
@@ -48,6 +49,8 @@ Call once per script.
 Registers a window as scrollable.
 - `innerScrollOnFocus` (default `true`): when focus is inside a child control, wheel input may be routed to that control when appropriate.
 
+The initial content boundary is the window's current client size. Controls outside that boundary are not included automatically.
+
 ### `ScrollableGui.unregister(hWndOrGui) -> true/false`
 Stops managing the window.  
 If `ScrollableGui.init()` is active (it hooks `WM_DESTROY`), the window is automatically unregistered when it is destroyed—so an explicit call is usually unnecessary.
@@ -61,8 +64,15 @@ Toggles focus-based wheel routing after registration.
 ### `ScrollableGui.syncSize(hWndOrGui) -> true/false`
 Forces recalculation of scroll ranges/pages using current window size and stored boundary.
 
-### `ScrollableGui.calculateInnerControlsSize(hWndOrGui, &left?, &top?, &right?, &bottom?, visibleControlsOnly := true) -> true/false`
-Computes the bounding rectangle of child controls.
+### `ScrollableGui.calculateInnerControlsSize(hWndOrGui, &left?, &top?, &right?, &bottom?, visibleControlsOnly := 1) -> true/false`
+Computes the bounding rectangle of child controls. `visibleControlsOnly` accepts the following modes:
+- `0`: include all controls.
+- `1`: include controls reported as visible by `ControlGetVisible()` (existing/default behavior).
+- `2`: include controls with their own `WS_VISIBLE` style, even while the parent GUI is hidden.
+
+### `ScrollableGui.expandBoundaryToControls(hWndOrGui, visibleControlsOnly := 2, setMaxSize := true) -> true/false`
+Expands, but never shrinks, the stored content boundary to include child controls and the GUI margins.
+Call this explicitly when controls outside the current client area are intended to be scrollable content.
 
 ### `ScrollableGui.getBoundary(hWndOrGui, &width?, &height?) -> true/false`
 Returns the stored content boundary size.
