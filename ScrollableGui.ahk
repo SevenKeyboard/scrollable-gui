@@ -11,7 +11,7 @@ class VersionManager_ScrollableGui
     static _ := VersionManager_ScrollableGui._init()
     _init()    {
         global
-        SCROLLABLEGUI_VERSION := "1.2.0"
+        SCROLLABLEGUI_VERSION := "1.2.1"
     }
 }
 class ScrollableGui
